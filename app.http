@@ -1,2 +1,7 @@
-GET http://localhost:3000/todos/?search_q=the
+GET http://localhost:3000/todos/?priority=LOW&status=TO%20
 ###
+
+GET http://localhost:3000/todos/1
+###
+
+Post http://localhost:3000/todos/

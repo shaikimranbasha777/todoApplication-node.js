@@ -130,7 +130,7 @@ app.get("/todos/", async (request, response) => {
                 todo 
             WHERE
                 todo LIKE '%${search_q}%'
-                OR status = '${status}';`;
+                AND status = '${status}';`;
         break;
       case hasCategoryProperty(request.query):
         getTodosQuery = `
@@ -153,27 +153,32 @@ app.get("/todos/", async (request, response) => {
     }
     data = await database.all(getTodosQuery);
     response.send(data);
-  } else if (
-    request.query.status !== "TO%20DO" ||
-    request.query.status !== "IN%20PROGRESS" ||
-    request.query.status !== "DONE"
-  ) {
+  } else {
+    let inValidTodo = "";
+    if (
+      (request.query.status !== "TO%20DO" ||
+        request.query.status !== "IN%20PROGRESS" ||
+        request.query.status !== "DONE") &&
+      request.query.category === undefined &&
+      request.query.priority === undefined
+    ) {
+      inValidTodo = "Status";
+    } else if (
+      (request.query.category !== "WORK" ||
+        request.query.category !== "HOME" ||
+        request.query.category !== "LEARNING") &&
+      request.query.priority === undefined
+    ) {
+      inValidTodo = "Category";
+    } else if (
+      request.query.priority !== "HIGH" ||
+      request.query.priority !== "MEDIUM" ||
+      request.query.priority !== "LOW"
+    ) {
+      inValidTodo = "Priority";
+    }
     response.status(400);
-    response.send(`Invalid Todo Status`);
-  } else if (
-    request.query.category !== "WORK" ||
-    request.query.category !== "HOME" ||
-    request.query.category !== "LEARNING"
-  ) {
-    response.status(400);
-    response.send(`Invalid Todo Category`);
-  } else if (
-    request.query.priority !== "HIGH" ||
-    request.query.priority !== "MEDIUM" ||
-    request.query.priority !== "LOW"
-  ) {
-    response.status(400);
-    response.send(`Invalid Todo Priority`);
+    response.send(`Invalid Todo ${inValidTodo}`);
   }
 });
 
@@ -213,6 +218,167 @@ app.get("/agenda/", async (request, response) => {
   response.send(400);
   response.send("Invalid Due Date");
   // }
+});
+
+app.post("/todos/", async (request, response) => {
+  const { id, todo, priority, status, category, dueDate } = request.body;
+
+  if (
+    (request.body.status === "TO%20DO" ||
+      request.body.status === "IN%20PROGRESS" ||
+      request.body.status === "DONE") &&
+    (request.body.category === "WORK" ||
+      request.body.category === "HOME" ||
+      request.body.category === "LEARNING") &&
+    (request.body.priority === "HIGH" ||
+      request.body.priority === "MEDIUM" ||
+      request.body.priority === "LOW")
+  ) {
+    const postTodoQuery = `
+  INSERT INTO
+    todo (id, todo, priority, status, category, due_date)
+  VALUES
+    (${id}, '${todo}', '${priority}', '${status}', '${category}', '${dueDate}');`;
+    await database.run(postTodoQuery);
+    response.send("Todo Successfully Added");
+  } else {
+    let inValidTodoPost = "";
+    if (
+      (request.body.status !== "TO%20DO" ||
+        request.body.status !== "IN%20PROGRESS" ||
+        request.body.status !== "DONE") &&
+      request.body.category === undefined &&
+      request.body.priority === undefined
+    ) {
+      inValidTodoPost = "Status";
+    } else if (
+      (request.body.category !== "WORK" ||
+        request.body.category !== "HOME" ||
+        request.body.category !== "LEARNING") &&
+      request.body.priority === undefined
+    ) {
+      inValidTodoPost = "Category";
+    } else if (
+      request.body.priority !== "HIGH" ||
+      request.body.priority !== "MEDIUM" ||
+      request.body.priority !== "LOW"
+    ) {
+      inValidTodoPost = "Priority";
+    }
+    response.status(400);
+    response.send(`Invalid Todo ${inValidTodoPost}`);
+  }
+});
+
+app.put("/todos/:todoId/", async (request, response) => {
+  const { todoId } = request.params;
+  let updateColumn = "";
+  const requestBody = request.body;
+  switch (true) {
+    case requestBody.status !== undefined:
+      updateColumn = "Status";
+      break;
+    case requestBody.priority !== undefined:
+      updateColumn = "Priority";
+      break;
+    case requestBody.todo !== undefined:
+      updateColumn = "Todo";
+      break;
+    case requestBody.category !== undefined:
+      updateColumn = "Category";
+      break;
+    case requestBody.dueDate !== undefined:
+      updateColumn = "Due Date";
+      break;
+  }
+  const previousTodoQuery = `
+    SELECT
+      *
+    FROM
+      todo
+    WHERE 
+      id = ${todoId};`;
+  const previousTodo = await database.get(previousTodoQuery);
+
+  const {
+    todo = previousTodo.todo,
+    priority = previousTodo.priority,
+    status = previousTodo.status,
+    category = previousTodo.category,
+    dueDate = previousTodo.dueDate,
+  } = request.body;
+
+  if (
+    request.body.status === "TO%20DO" ||
+    request.body.status === "IN%20PROGRESS" ||
+    request.body.status === "DONE" ||
+    request.body.category === "WORK" ||
+    request.body.category === "HOME" ||
+    request.body.category === "LEARNING" ||
+    request.body.priority === "HIGH" ||
+    request.body.priority === "MEDIUM" ||
+    request.body.priority === "LOW" ||
+    request.body.todo !== undefined ||
+    request.body.dueDate !== undefined
+  ) {
+    const updateTodoQuery = `
+    UPDATE
+      todo
+    SET
+      todo='${todo}',
+      priority='${priority}',
+      status='${status}',
+      category='${category}',
+      due_date='${dueDate}'
+    WHERE
+      id = ${todoId};`;
+
+    await database.run(updateTodoQuery);
+    response.send(`${updateColumn} Updated`);
+  } else {
+    let inValidTodoPut = "";
+    if (
+      (request.body.status !== "TO%20DO" ||
+        request.body.status !== "IN%20PROGRESS" ||
+        request.body.status !== "DONE") &&
+      request.body.category === undefined &&
+      request.body.priority === undefined &&
+      request.body.dueDate === undefined
+    ) {
+      inValidTodoPut = "Status";
+    } else if (
+      (request.body.category !== "WORK" ||
+        request.body.category !== "HOME" ||
+        request.body.category !== "LEARNING") &&
+      request.body.priority === undefined &&
+      request.body.dueDate === undefined
+    ) {
+      inValidTodoPut = "Category";
+    } else if (
+      (request.body.priority !== "HIGH" ||
+        request.body.priority !== "MEDIUM" ||
+        request.body.priority !== "LOW") &&
+      request.body.dueDate === undefined
+    ) {
+      inValidTodoPut = "Priority";
+    } else {
+      inValidTodoPut = "Due Date";
+    }
+    response.status(400);
+    response.send(`Invalid Todo ${inValidTodoPut}`);
+  }
+});
+
+app.delete("/todos/:todoId/", async (request, response) => {
+  const { todoId } = request.params;
+  const deleteTodoQuery = `
+  DELETE FROM
+    todo
+  WHERE
+    id = ${todoId};`;
+
+  await database.run(deleteTodoQuery);
+  response.send("Todo Deleted");
 });
 
 module.exports = app;
