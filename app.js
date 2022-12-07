@@ -61,11 +61,22 @@ const hasCategoryProperty = (requestQuery) => {
   return requestQuery.category !== undefined;
 };
 
+const convertObjectToResponse = (dbObject) => {
+  return {
+    id: dbObject.id,
+    todo: dbObject.todo,
+    priority: dbObject.priority,
+    status: dbObject.status,
+    category: dbObject.category,
+    dueDate: dbObject.due_date,
+  };
+};
+
 app.get("/todos/", async (request, response) => {
   const { search_q = "", status, category, priority } = request.query;
   if (
-    request.query.status === "TO%20DO" ||
-    request.query.status === "IN%20PROGRESS" ||
+    request.query.status === "TO DO" ||
+    request.query.status === "IN PROGRESS" ||
     request.query.status === "DONE" ||
     request.query.category === "WORK" ||
     request.query.category === "HOME" ||
@@ -152,7 +163,7 @@ app.get("/todos/", async (request, response) => {
                 todo LIKE '%${search_q}%';`;
     }
     data = await database.all(getTodosQuery);
-    response.send(data);
+    response.send(data.map((each) => convertObjectToResponse(each)));
   } else {
     let inValidTodo = "";
     if (
@@ -192,7 +203,7 @@ app.get("/todos/:todoId/", async (request, response) => {
     WHERE
       id = ${todoId};`;
   const todo = await database.get(getTodoQuery);
-  response.send(todo);
+  response.send(convertObjectToResponse(todo));
 });
 
 app.get("/agenda/", async (request, response) => {
@@ -224,15 +235,18 @@ app.post("/todos/", async (request, response) => {
   const { id, todo, priority, status, category, dueDate } = request.body;
 
   if (
-    (request.body.status === "TO%20DO" ||
-      request.body.status === "IN%20PROGRESS" ||
+    (request.body.status === "TO DO" ||
+      request.body.status === "IN PROGRESS" ||
       request.body.status === "DONE") &&
     (request.body.category === "WORK" ||
       request.body.category === "HOME" ||
       request.body.category === "LEARNING") &&
     (request.body.priority === "HIGH" ||
       request.body.priority === "MEDIUM" ||
-      request.body.priority === "LOW")
+      request.body.priority === "LOW") &&
+    request.body.todo !== undefined &&
+    request.body.dueDate !== undefined &&
+    request.body.id !== undefined
   ) {
     const postTodoQuery = `
   INSERT INTO
@@ -244,26 +258,47 @@ app.post("/todos/", async (request, response) => {
   } else {
     let inValidTodoPost = "";
     if (
-      (request.body.status !== "TO%20DO" ||
-        request.body.status !== "IN%20PROGRESS" ||
+      (request.body.status !== "TO DO" ||
+        request.body.status !== "IN PROGRESS" ||
         request.body.status !== "DONE") &&
-      request.body.category === undefined &&
-      request.body.priority === undefined
+      (request.body.category === "WORK" ||
+        request.body.category === "HOME" ||
+        request.body.category === "LEARNING") &&
+      (request.body.priority === "HIGH" ||
+        request.body.priority === "MEDIUM" ||
+        request.body.priority === "LOW") &&
+      request.body.dueDate !== undefined
     ) {
       inValidTodoPost = "Status";
     } else if (
       (request.body.category !== "WORK" ||
         request.body.category !== "HOME" ||
         request.body.category !== "LEARNING") &&
-      request.body.priority === undefined
+      (request.body.status === "TO DO" ||
+        request.body.status === "IN PROGRESS" ||
+        request.body.status === "DONE") &&
+      (request.body.priority === "HIGH" ||
+        request.body.priority === "MEDIUM" ||
+        request.body.priority === "LOW") &&
+      request.body.dueDate !== undefined
     ) {
       inValidTodoPost = "Category";
     } else if (
-      request.body.priority !== "HIGH" ||
-      request.body.priority !== "MEDIUM" ||
-      request.body.priority !== "LOW"
+      (request.body.priority !== "HIGH" ||
+        request.body.priority !== "MEDIUM" ||
+        request.body.priority !== "LOW") &&
+      (request.body.status === "TO DO" ||
+        request.body.status === "IN PROGRESS" ||
+        request.body.status === "DONE") &&
+      (request.body.category === "WORK" ||
+        request.body.category === "HOME" ||
+        request.body.category === "LEARNING") &&
+      request.body.dueDate !== undefined
     ) {
       inValidTodoPost = "Priority";
+    } else {
+      response.status(400);
+      response.send(`Invalid Due Date`);
     }
     response.status(400);
     response.send(`Invalid Todo ${inValidTodoPost}`);
@@ -309,8 +344,8 @@ app.put("/todos/:todoId/", async (request, response) => {
   } = request.body;
 
   if (
-    request.body.status === "TO%20DO" ||
-    request.body.status === "IN%20PROGRESS" ||
+    request.body.status === "TO DO" ||
+    request.body.status === "IN PROGRESS" ||
     request.body.status === "DONE" ||
     request.body.category === "WORK" ||
     request.body.category === "HOME" ||
@@ -338,8 +373,8 @@ app.put("/todos/:todoId/", async (request, response) => {
   } else {
     let inValidTodoPut = "";
     if (
-      (request.body.status !== "TO%20DO" ||
-        request.body.status !== "IN%20PROGRESS" ||
+      (request.body.status !== "TO DO" ||
+        request.body.status !== "IN PROGRESS" ||
         request.body.status !== "DONE") &&
       request.body.category === undefined &&
       request.body.priority === undefined &&
@@ -361,8 +396,9 @@ app.put("/todos/:todoId/", async (request, response) => {
       request.body.dueDate === undefined
     ) {
       inValidTodoPut = "Priority";
-    } else {
-      inValidTodoPut = "Due Date";
+    } else if (request.body.dueDate !== undefined) {
+      response.status(400);
+      response.send(`Invalid Due Date`);
     }
     response.status(400);
     response.send(`Invalid Todo ${inValidTodoPut}`);

@@ -1,7 +1,18 @@
-GET http://localhost:3000/todos/?priority=LOW&status=TO%20
+GET http://localhost:3000/todos/?status=TO%20DO
 ###
 
-GET http://localhost:3000/todos/1
+GET http://localhost:3000/todos/9
 ###
 
 Post http://localhost:3000/todos/
+Content-Type: application/json
+
+{
+ "id": 9,
+ "todo": "Finalize theme",
+ "priority": "HIGH",
+ "status": "IN PROGRESS",
+ "category": "WORK",
+ "dueDate": "2022-12-02"
+}
+###
